@@ -1,17 +1,88 @@
-// eslint-disable-next-line simple-import-sort/imports
-import { player } from './slices/player';
+import { create } from 'zustand';
 
-import { configureStore } from '@reduxjs/toolkit';
-import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
+import { api } from '../lib/axios';
 
-export const store = configureStore({
-  reducer: {
-    player,
-  },
+type Course = {
+  id: number;
+  modules: Array<{
+    id: number;
+    title: string;
+    lessons: Array<{
+      id: string;
+      title: string;
+      duration: string;
+    }>;
+  }>;
+};
+
+export type PlayerState = {
+  course: Course | null;
+  currentModuleIndex: number;
+  currentLessonIndex: number;
+  isLoading: boolean;
+
+  play: (moduleAndLessonIndex: [number, number]) => void;
+  next: () => void;
+  load: () => Promise<void>;
+};
+
+export const useStore = create<PlayerState>((set, get) => {
+  return {
+    course: null,
+    currentModuleIndex: 0,
+    currentLessonIndex: 0,
+    isLoading: true,
+
+    load: async () => {
+      set({ isLoading: true });
+
+      const response = await api.get('/courses/1');
+
+      set({ course: response.data, isLoading: false });
+    },
+
+    play: (moduleAndLessonIndex: [number, number]) => {
+      const [moduleIndex, lessonIndex] = moduleAndLessonIndex;
+
+      set({
+        currentModuleIndex: moduleIndex,
+        currentLessonIndex: lessonIndex,
+      });
+    },
+
+    next: () => {
+      const { currentLessonIndex, currentModuleIndex, course } = get();
+
+      const nextLessonIndex = currentLessonIndex + 1;
+      const nextLesson =
+        course?.modules[currentModuleIndex].lessons[nextLessonIndex];
+
+      if (nextLesson) {
+        set({
+          currentLessonIndex: nextLessonIndex,
+        });
+      } else {
+        const nextModuleIndex = currentModuleIndex + 1;
+        const nextModule = course?.modules[nextModuleIndex];
+
+        if (nextModule) {
+          set({
+            currentModuleIndex: nextModuleIndex,
+            currentLessonIndex: 0,
+          });
+        }
+      }
+    },
+  };
 });
 
-export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch;
+export const useCurrentLesson = () => {
+  return useStore((store) => {
+    const { currentModuleIndex, currentLessonIndex } = store;
 
-export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
-export const useAppDispatch: () => AppDispatch = useDispatch;
+    const currentModule = store.course?.modules[currentModuleIndex];
+    const currentLesson = currentModule?.lessons[currentLessonIndex];
+
+    return { currentModule, currentLesson };
+  });
+};

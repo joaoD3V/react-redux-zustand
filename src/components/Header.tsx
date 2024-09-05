@@ -1,13 +1,12 @@
 /* eslint-disable react/no-unescaped-entities */
-
-import { useAppSelector } from '../store';
-import { useCurrentLesson } from '../store/slices/player';
+import { useCurrentLesson, useStore } from '../store';
 
 export function Header() {
   const { currentModule, currentLesson } = useCurrentLesson();
-  const isCourseLoading = useAppSelector((store) => store.player.isLoading);
 
-  if (isCourseLoading) {
+  const isLoading = useStore((store) => store.isLoading);
+
+  if (isLoading) {
     return <h1 className="text-2xl font-bold">Carregando...</h1>;
   }
 
